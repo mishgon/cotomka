@@ -14,3 +14,4 @@ pip uninstall opencv-python && pip install opencv-python-headless
 
 ## Usage
 
+See [usage_example.ipynb](usage_example.ipynb).
