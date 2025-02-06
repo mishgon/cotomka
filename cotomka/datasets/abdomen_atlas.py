@@ -1,10 +1,10 @@
 from typing import Tuple
 from pathlib import Path
 from tqdm.auto import tqdm
-from multiprocessing.pool import ThreadPool
+from functools import partial
+from multiprocessing import Pool
 import nibabel
 import numpy as np
-
 
 from cotomka.datasets.base import Dataset
 from cotomka.preprocessing.nifty import affine_to_voxel_spacing, to_canonical_orientation, is_diagonal
@@ -26,24 +26,24 @@ class AbdomenAtlas(Dataset):
 
         ids = [path.name for path in src_dir.glob('uncompressed/BDMAP_*')]
 
-        def prepare(id_: str) -> None:
-            image, affine = _load_nii(src_dir / 'uncompressed' / id_ / 'ct.nii.gz')
-            mask, mask_affine = _load_nii(src_dir / 'uncompressed' / id_ / 'combined_labels.nii.gz')
-            if not is_diagonal(affine[:3, :3]) or not is_diagonal(mask_affine[:3, :3]):
-                return
-            voxel_spacing = affine_to_voxel_spacing(affine)
-            image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
-            mask, _ = to_canonical_orientation(mask, None, mask_affine)
+        with Pool(num_workers) as p:
+            _ = list(tqdm(p.imap(partial(self._prepare, src_dir=src_dir), ids), total=len(ids)))
 
-            save_dirpath = self.root_dir / id_
-            save_dirpath.mkdir()
-            save_numpy(image.astype('int16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
-            save_numpy(mask.astype('uint8'), save_dirpath / 'mask.npy.gz', compression=1, timestamp=0)
-        
-        with ThreadPool(num_workers) as p:
-            _ = list(tqdm(p.imap(prepare, ids), total=len(ids)))
+    def _prepare(self, id_: str, src_dir: Path) -> None:
+        image, affine = _load_nii(src_dir / 'uncompressed' / id_ / 'ct.nii.gz')
+        mask, mask_affine = _load_nii(src_dir / 'uncompressed' / id_ / 'combined_labels.nii.gz')
+        if not is_diagonal(affine[:3, :3]) or not is_diagonal(mask_affine[:3, :3]):
+            return
+        voxel_spacing = affine_to_voxel_spacing(affine)
+        image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
+        mask, _ = to_canonical_orientation(mask, None, mask_affine)
 
+        save_dirpath = self.root_dir / id_
+        save_dirpath.mkdir()
+        save_numpy(image.astype('int16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
+        save_numpy(mask.astype('uint8'), save_dirpath / 'mask.npy.gz', compression=1, timestamp=0)
+    
 
 def _load_nii(nii_file: Path) -> Tuple[np.ndarray, np.ndarray]:
     nii = nibabel.load(nii_file)

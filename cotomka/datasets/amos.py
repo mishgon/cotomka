@@ -2,7 +2,8 @@ import zipfile
 import gzip
 from pathlib import Path
 from typing import Tuple
-from multiprocessing.pool import ThreadPool
+from functools import partial
+from multiprocessing import Pool
 from tqdm.auto import tqdm
 import numpy as np
 import nibabel
@@ -39,21 +40,21 @@ class AMOSCTLabeledTrain(Dataset):
                     ids.append(name[len('amos22/imagesTr/amos_'):-len('.nii.gz')])
         ids = [i for i in ids if int(i) <= 500 and i not in DROP_IDS]
 
-        def prepare(id_: str) -> None:
-            image, affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/imagesTr/amos_{id_}.nii.gz')
-            mask, mask_affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/labelsTr/amos_{id_}.nii.gz')
-            voxel_spacing = affine_to_voxel_spacing(affine)
-            image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
-            mask, _ = to_canonical_orientation(mask, None, mask_affine)
- 
-            data_dir = self.root_dir / id_
-            data_dir.mkdir()
-            save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
-            save_numpy(mask.astype('uint8'), data_dir / 'mask.npy.gz', compression=1, timestamp=0)
+        with Pool(num_workers) as p:
+            _ = list(tqdm(p.imap(partial(self._prepare, src_dir=src_dir), ids), total=len(ids)))
 
-        with ThreadPool(num_workers) as p:
-            _ = list(tqdm(p.imap(prepare, ids), total=len(ids)))
+    def _prepare(self, id_: str, src_dir: Path) -> None:
+        image, affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/imagesTr/amos_{id_}.nii.gz')
+        mask, mask_affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/labelsTr/amos_{id_}.nii.gz')
+        voxel_spacing = affine_to_voxel_spacing(affine)
+        image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
+        mask, _ = to_canonical_orientation(mask, None, mask_affine)
+
+        data_dir = self.root_dir / id_
+        data_dir.mkdir()
+        save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+        save_numpy(mask.astype('uint8'), data_dir / 'mask.npy.gz', compression=1, timestamp=0)
 
 
 class AMOSCTVal(Dataset):
@@ -77,21 +78,21 @@ class AMOSCTVal(Dataset):
         # int(i) <= 500 - CT ids
         ids = [id_ for id_ in ids if int(id_) <= 500 and id_ not in DROP_IDS]
 
-        def prepare(id_: str) -> None:
-            image, affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/imagesVa/amos_{id_}.nii.gz')
-            mask, mask_affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/labelsVa/amos_{id_}.nii.gz')
-            voxel_spacing = affine_to_voxel_spacing(affine)
-            image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
-            mask, _ = to_canonical_orientation(mask, None, mask_affine)
+        with Pool(num_workers) as p:
+            _ = list(tqdm(p.imap(partial(self._prepare, src_dir=src_dir), ids), total=len(ids)))
 
-            data_dir = self.root_dir / id_
-            data_dir.mkdir()
-            save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
-            save_numpy(mask.astype('uint8'), data_dir / 'mask.npy.gz', compression=1, timestamp=0)
+    def _prepare(self, id_: str, src_dir: Path) -> None:
+        image, affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/imagesVa/amos_{id_}.nii.gz')
+        mask, mask_affine = _load_nii_from_zip(src_dir, 'amos22.zip', f'amos22/labelsVa/amos_{id_}.nii.gz')
+        voxel_spacing = affine_to_voxel_spacing(affine)
+        image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
+        mask, _ = to_canonical_orientation(mask, None, mask_affine)
 
-        with ThreadPool(num_workers) as p:
-            _ = list(tqdm(p.imap(prepare, ids), total=len(ids)))
+        data_dir = self.root_dir / id_
+        data_dir.mkdir()
+        save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+        save_numpy(mask.astype('uint8'), data_dir / 'mask.npy.gz', compression=1, timestamp=0)
 
 
 class AMOSCTUnlabeledTrain(Dataset):
@@ -117,31 +118,31 @@ class AMOSCTUnlabeledTrain(Dataset):
                         ids.append(name.split('/')[1][len('amos_'):-len('.nii.gz')])
         ids = [i for i in ids if i not in DROP_IDS]
 
-        def prepare(id_: str) -> None:
-            if 5000 <= int(id_) < 5400:
-                zip_file = 'amos22_unlabeled_ct_5000_5399.zip'
-                image_file = f'amos_unlabeled_ct_5000_5399/amos_{id_}.nii.gz'
-            elif 5400 <= int(id_) < 5900:
-                zip_file = 'amos22_unlabeled_ct_5400_5899.zip'
-                image_file = f'amos_unlabeled_ct_5400_5899/amos_{id_}.nii.gz'
-            elif 5900 <= int(id_) < 6200:
-                zip_file = 'amos22_unlabeled_ct_5900_6199.zip'
-                image_file = f'amos22_unlabeled_ct_5900_6199/amos_{id_}.nii.gz'
-            else:
-                zip_file = 'amos22_unlabeled_ct_6200_6899.zip'
-                image_file = f'amos22_unlabeled_6200_6899/amos_{id_}.nii.gz'
+        with Pool(num_workers) as p:
+            _ = list(tqdm(p.imap(partial(self._prepare, src_dir=src_dir), ids), total=len(ids)))
 
-            image, affine = _load_nii_from_zip(src_dir, zip_file, image_file)
-            voxel_spacing = affine_to_voxel_spacing(affine)
-            image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
+    def _prepare(self, id_: str, src_dir: Path) -> None:
+        if 5000 <= int(id_) < 5400:
+            zip_file = 'amos22_unlabeled_ct_5000_5399.zip'
+            image_file = f'amos_unlabeled_ct_5000_5399/amos_{id_}.nii.gz'
+        elif 5400 <= int(id_) < 5900:
+            zip_file = 'amos22_unlabeled_ct_5400_5899.zip'
+            image_file = f'amos_unlabeled_ct_5400_5899/amos_{id_}.nii.gz'
+        elif 5900 <= int(id_) < 6200:
+            zip_file = 'amos22_unlabeled_ct_5900_6199.zip'
+            image_file = f'amos22_unlabeled_ct_5900_6199/amos_{id_}.nii.gz'
+        else:
+            zip_file = 'amos22_unlabeled_ct_6200_6899.zip'
+            image_file = f'amos22_unlabeled_6200_6899/amos_{id_}.nii.gz'
 
-            data_dir = self.root_dir / id_
-            data_dir.mkdir()
-            save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+        image, affine = _load_nii_from_zip(src_dir, zip_file, image_file)
+        voxel_spacing = affine_to_voxel_spacing(affine)
+        image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
 
-        with ThreadPool(num_workers) as p:
-            _ = list(tqdm(p.imap(prepare, ids), total=len(ids)))
+        data_dir = self.root_dir / id_
+        data_dir.mkdir()
+        save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
 
 
 def _load_nii_from_zip(src_dir: Path, zip_file: str, nii_file: str) -> Tuple[np.ndarray, np.ndarray]:

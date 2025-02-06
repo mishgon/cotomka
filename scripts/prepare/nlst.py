@@ -1,12 +1,21 @@
+import argparse
+
 from cotomka.datasets import *
 
 
-def main():
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--src_dir', required=True)
+    parser.add_argument('--num_workers', default=8, type=int)
+    return parser.parse_args()
+
+
+def main(args):
     NLST().prepare(
-        src_dir='/home/jovyan/misha/source_data/nlst',
-        num_workers=16
+        src_dir=args.src_dir,
+        num_workers=args.num_workers
     )
 
 
 if __name__ == '__main__':
-    main()
+    main(parse_args())

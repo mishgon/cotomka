@@ -2,7 +2,7 @@ from typing import Iterable, List
 from pathlib import Path
 import warnings
 from tqdm.auto import tqdm
-from multiprocessing.pool import ThreadPool
+from multiprocessing import Pool
 import pydicom
 import numpy as np
 
@@ -25,37 +25,37 @@ class NLST(Dataset):
 
         patient_dirs = list(Path(src_dir).glob('NLST/*'))
 
-        def prepare(patient_dir: Path) -> None:
-            series_dir = max(_iterate_series_dirs(patient_dir), key=_estimate_series_len)
+        with Pool(num_workers) as p:
+            _ = list(tqdm(p.imap(self._prepare, patient_dirs), total=len(patient_dirs)))
 
-            series = _load_series(series_dir)
+    def _prepare(self, patient_dir: Path) -> None:
+        series_dir = max(_iterate_series_dirs(patient_dir), key=_estimate_series_len)
 
-            # extract image, voxel spacing and orientation matrix from dicoms
-            # drop non-axial series and series with invalid tags
-            try:
-                if get_series_slice_plane(series) != Plane.Axial:
-                    raise ValueError('Series is not axial')
+        series = _load_series(series_dir)
 
-                series = drop_duplicated_slices(series)
-                series = order_series(series)
+        # extract image, voxel spacing and orientation matrix from dicoms
+        # drop non-axial series and series with invalid tags
+        try:
+            if get_series_slice_plane(series) != Plane.Axial:
+                raise ValueError('Series is not axial')
 
-                series_uid = get_series_uid(series)
-                image = get_series_image(series)
-                voxel_spacing = get_series_voxel_spacing(series)
-                om = get_series_orientation_matrix(series)
-            except (AttributeError, ValueError, NotImplementedError) as e:
-                warnings.warn(f'Series at {str(series_dir)} fails with {e.__class__.__name__}: {str(e)}')
-                return
+            series = drop_duplicated_slices(series)
+            series = order_series(series)
 
-            image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, om)
+            series_uid = get_series_uid(series)
+            image = get_series_image(series)
+            voxel_spacing = get_series_voxel_spacing(series)
+            om = get_series_orientation_matrix(series)
+        except (AttributeError, ValueError, NotImplementedError) as e:
+            warnings.warn(f'Series at {str(series_dir)} fails with {e.__class__.__name__}: {str(e)}')
+            return
 
-            data_dir = self.root_dir / series_uid
-            data_dir.mkdir()
-            save_numpy(np.clip(image).astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+        image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, om)
 
-        with ThreadPool(num_workers) as p:
-            _ = list(tqdm(p.imap(prepare, patient_dirs), total=len(patient_dirs)))
+        data_dir = self.root_dir / series_uid
+        data_dir.mkdir()
+        save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
 
 
 def _iterate_series_dirs(patient_dir: Path) -> Iterable[Path]:

@@ -1,6 +1,5 @@
 from enum import Enum
-from typing import NamedTuple, Optional, Sequence, Tuple, List
-from pathlib import Path
+from typing import NamedTuple, Tuple, List
 import warnings
 from multiprocessing.pool import ThreadPool
 from tqdm.auto import tqdm
@@ -134,47 +133,47 @@ class LIDC(Dataset):
 
         scans = pl.query(pl.Scan).all()
 
-        def prepare(scan: pl.Scan):
-            # read series
-            series = scan.load_all_dicom_images(verbose=False)
-
-            # extract image, voxel spacing and orientation matrix from dicoms
-            # drop non-axial series and series with invalid tags
-            series_uid = get_series_uid(series)
-            try:
-                if get_series_slice_plane(series) != Plane.Axial:
-                    raise ValueError('Series is not axial')
-
-                series = drop_duplicated_slices(series)
-                series = order_series(series)
-
-                image = get_series_image(series)
-                voxel_spacing = get_series_voxel_spacing(series)
-                om = get_series_orientation_matrix(series)
-            except (AttributeError, ValueError, NotImplementedError) as e:
-                warnings.warn(f'Series {series_uid} fails with {e.__class__.__name__}: {str(e)}')
-                return
-
-            # to canonical orientation
-            image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, om)
-
-            try:
-                nodules = [
-                    [annotation_to_nodule(ann, image_size=image.shape) for ann in anns]
-                    for anns in scan.cluster_annotations()
-                ]
-            except ClusterError as e:
-                warnings.warn(f'Series {series_uid} fails with {e.__class__.__name__}: {str(e)}')
-                return
-
-            save_dirpath = self.root_dir / series_uid
-            save_dirpath.mkdir()
-            save_numpy(image.astype('float16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
-            save_json([[n.to_json() for n in nodule] for nodule in nodules], save_dirpath / 'nodules.json')
-
         with ThreadPool(num_workers) as p:
-            _ = list(tqdm(p.imap(prepare, scans), total=len(scans)))
+            _ = list(tqdm(p.imap(self._prepare, scans), total=len(scans)))
+
+    def _prepare(self, scan: pl.Scan):
+        # read series
+        series = scan.load_all_dicom_images(verbose=False)
+
+        # extract image, voxel spacing and orientation matrix from dicoms
+        # drop non-axial series and series with invalid tags
+        series_uid = get_series_uid(series)
+        try:
+            if get_series_slice_plane(series) != Plane.Axial:
+                raise ValueError('Series is not axial')
+
+            series = drop_duplicated_slices(series)
+            series = order_series(series)
+
+            image = get_series_image(series)
+            voxel_spacing = get_series_voxel_spacing(series)
+            om = get_series_orientation_matrix(series)
+        except (AttributeError, ValueError, NotImplementedError) as e:
+            warnings.warn(f'Series {series_uid} fails with {e.__class__.__name__}: {str(e)}')
+            return
+
+        # to canonical orientation
+        image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, om)
+
+        try:
+            nodules = [
+                [annotation_to_nodule(ann, image_size=image.shape) for ann in anns]
+                for anns in scan.cluster_annotations()
+            ]
+        except ClusterError as e:
+            warnings.warn(f'Series {series_uid} fails with {e.__class__.__name__}: {str(e)}')
+            return
+
+        save_dirpath = self.root_dir / series_uid
+        save_dirpath.mkdir()
+        save_numpy(image.astype('float16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
+        save_json([[n.to_json() for n in nodule] for nodule in nodules], save_dirpath / 'nodules.json')
 
 
 def annotation_to_nodule(annotation: pl.Annotation, image_size: Tuple[int, int, int]) -> Nodule:
