@@ -33,8 +33,7 @@ Homepage = "https://github.com/mishgon/cotomka"
 Issues = "https://github.com/mishgon/cotomka/issues"
 
 [tool.setuptools.packages.find]
-include = ["cotomka"]
-namespaces = false
+where = ["src"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
