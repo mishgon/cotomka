@@ -5,3 +5,4 @@ from .midrc_ricord_1a import MIDRCRICORD1A
 from .kits21 import KiTS21
 from .lits import LiTS
 from .lidc import LIDC
+from .ct_rate import CTRATETrain, CTRATEVal
