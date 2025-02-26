@@ -84,8 +84,8 @@ class MIDRCRICORD1A(Dataset):
             # to canonical orientation
             mask, _ = to_canonical_orientation(mask, None, om)
 
-            save_dirpath = self.root_dir / series_uid
-            save_dirpath.mkdir()
-            save_numpy(image.astype('int16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
-            save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
-            save_numpy(mask, save_dirpath / 'mask.npy.gz', compression=1, timestamp=0)
+            data_dir = self.root_dir / series_uid
+            data_dir.mkdir()
+            save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+            save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+            save_numpy(mask, data_dir / 'mask.npy.gz', compression=1, timestamp=0)

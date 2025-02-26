@@ -1,51 +1,9 @@
-from typing import NamedTuple, Tuple, Sequence, Dict
+from typing import Tuple, Sequence
 import itertools
 import numpy as np
 from skimage.segmentation import flood
 from skimage.measure import block_reduce
-from skimage.exposure import equalize_adapthist
-from imops import crop_to_box, pad, zoom
-
-
-class PreprocessingConfig(NamedTuple):
-    voxel_spacing: Tuple[float, float, float] = (1.0, 1.0, 1.0)
-    hu_pivots: Sequence[float] = (-1000.0, -200.0, 200.0, 1500.0)
-    rescaled_pivots: Sequence[float] = (0.0, 0.2, 0.8, 1.0)
-    clahe: bool = True
-    clahe_clip_limit: float = 0.025
-
-
-def preprocess(
-        image: np.ndarray,
-        voxel_spacing: Tuple[float, float, float],
-        masks: Dict[str, np.ndarray],
-        config: PreprocessingConfig = PreprocessingConfig()
-) -> Tuple[np.ndarray, Tuple[float, float, float], Dict[str, np.ndarray]]:
-    # crop to body
-    box = get_body_box(image, voxel_spacing)
-    image = crop_to_box(image, box, num_threads=-1, backend='Scipy')
-    masks = {k: crop_to_box(v, box, num_threads=-1, backend='Scipy') for k, v in masks.items()}
-
-    # zoom to config.voxel_spacing
-    image = image.astype('float32')
-    scale_factor = tuple(voxel_spacing[i] / config.voxel_spacing[i] for i in range(3))
-    image = zoom(image, scale_factor, fill_value=np.min, backend='Scipy')
-    voxel_spacing = tuple(config.voxel_spacing)
-    masks = {k: zoom(v, scale_factor, order=0, fill_value=0, backend='Scipy') for k, v in masks.items()}
-
-    # zoom may pad image with zeros
-    box = mask_to_bbox(image > image.min())
-    image = crop_to_box(image, box, num_threads=-1, backend='Scipy')
-    masks = {k: crop_to_box(v, box, num_threads=-1, backend='Scipy') for k, v in masks.items()}
-
-    # rescale Hounsfield Units (HU) using piecewise-linear func
-    image = rescale_hu_piecewise(image, config.hu_pivots, config.rescaled_pivots)
-
-    # Contrast Limited Adaptive Histogram Equalization (CLAHE)
-    if config.clahe:
-        image = equalize_adapthist(image, clip_limit=config.clahe_clip_limit)
-
-    return image, voxel_spacing, masks
+from imops import pad
 
 
 def get_body_box(image: np.ndarray, voxel_spacing: Tuple[float, float, float]) -> np.ndarray:

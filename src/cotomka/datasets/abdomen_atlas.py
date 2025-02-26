@@ -38,11 +38,11 @@ class AbdomenAtlas(Dataset):
         image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
         mask, _ = to_canonical_orientation(mask, None, mask_affine)
 
-        save_dirpath = self.root_dir / id_
-        save_dirpath.mkdir()
-        save_numpy(image.astype('int16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
-        save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
-        save_numpy(mask.astype('uint8'), save_dirpath / 'mask.npy.gz', compression=1, timestamp=0)
+        data_dir = self.root_dir / id_
+        data_dir.mkdir()
+        save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+        save_numpy(mask.astype('uint8'), data_dir / 'mask.npy.gz', compression=1, timestamp=0)
     
 
 def _load_nii(nii_file: Path) -> Tuple[np.ndarray, np.ndarray]:

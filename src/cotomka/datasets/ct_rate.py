@@ -6,13 +6,14 @@ from tqdm.auto import tqdm
 from functools import cached_property
 import gzip
 import nibabel
+import math
 import numpy as np
 import pandas as pd
 from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 
 from cotomka.datasets.base import Dataset
-from cotomka.preprocessing.nifty import affine_to_voxel_spacing, to_canonical_orientation, is_diagonal
+from cotomka.preprocessing.dicom import orientation_matrix_to_slice_plane, Plane
 from cotomka.utils.io import save_numpy, save_json, load_numpy
 
 
@@ -23,50 +24,50 @@ class _CTRATE(Dataset):
     _split: str
 
     @cached_property
-    def _labels_df(self):
+    def labels_df(self):
         return pd.read_csv(self.root_dir / 'labels.csv').set_index('VolumeName')
 
     @cached_property
-    def _metadata_df(self):
+    def metadata_df(self):
         return pd.read_csv(self.root_dir / 'metadata.csv').set_index('VolumeName')
 
     @cached_property
-    def _reports_df(self):
+    def reports_df(self):
         return pd.read_csv(self.root_dir / 'reports.csv').set_index('VolumeName')
 
-    @property
+    @cached_property
     def index(self) -> Tuple[str]:
-        return tuple(sorted(self._labels_df.index))
+        return tuple(sorted(file.name[:-len('.npy.gz')] for file in self.root_dir.glob('*.npy.gz')))
 
     def _load_image(self, index: str) -> np.ndarray:
         return load_numpy(self.root_dir / f'{index}.npy.gz', decompress=True).astype('float32')
 
     def _load_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
         return (
-            *map(float, self._metadata_df.loc[index, 'XYSpacing'][1:-1].split(', ')),
-            float(self._metadata_df.loc[index, 'ZSpacing'])
+            *map(float, self.metadata_df.loc[index, 'XYSpacing'][1:-1].split(', ')),
+            float(self.metadata_df.loc[index, 'ZSpacing'])
         )
 
     def _load_study_data(self, index: str) -> str:
-        return self._metadata_df.loc[index, 'StudyDate']
+        return self.metadata_df.loc[index, 'StudyDate']
 
     def _load_patient_sex(self, index: str) -> str:
-        return self._metadata_df.loc[index, 'PatientSex']
+        return self.metadata_df.loc[index, 'PatientSex']
 
     def _load_patient_age(self, index: str) -> str:
-        return self._metadata_df.loc[index, 'PatientAge']
+        return self.metadata_df.loc[index, 'PatientAge']
 
     def _load_technique(self, index: str) -> str:
-        return self._reports_df.loc[index, 'Technique_EN']
+        return self.reports_df.loc[index, 'Technique_EN']
 
     def _load_findings(self, index: str) -> str:
-        return self._reports_df.loc[index, 'Findings_EN']
+        return self.reports_df.loc[index, 'Findings_EN']
 
     def _load_impression(self, index: str) -> str:
-        return self._reports_df.loc[index, 'Impressions_EN']
+        return self.reports_df.loc[index, 'Impressions_EN']
 
     def _load_labels(self, index: str) -> Dict[str, int]:
-        return self._labels_df.loc[index].to_dict()
+        return self.labels_df.loc[index].to_dict()
 
     def prepare(self, num_workers: int = 1) -> None:
         if self.root_dir.exists():
@@ -77,16 +78,29 @@ class _CTRATE(Dataset):
         load_dataset(REPO_ID, 'metadata', split=self._split).to_pandas().to_csv(self.root_dir / 'metadata.csv', index=False)
         load_dataset(REPO_ID, 'reports', split=self._split).to_pandas().to_csv(self.root_dir / 'reports.csv', index=False)
 
+        index = self.labels_df.index
         with Pool(num_workers) as p:
-            _ = list(tqdm(p.imap(self._prepare_image, self.index), total=len(self.index)))
+            _ = list(tqdm(p.imap(self._prepare_image, index), total=len(index)))
 
-    def _prepare_image(self, volume_name: str):
-        image_file = _find_nii_gz(volume_name)
+    def _prepare_image(self, index: str) -> None:
+        # drop images with undefined slice spacing
+        if math.isnan(self.metadata_df.loc[index, 'ZSpacing']):
+            return
+
+        # drop series with non-canonical orientation
+        image_orientation_patient = self.metadata_df.loc[index, 'ImageOrientationPatient']
+        image_orientation_patient = np.array(list(map(float, image_orientation_patient[1:-1].split(', '))))
+        row, col = image_orientation_patient.reshape(2, 3)
+        orientation_matrix = np.stack([row, col, np.cross(row, col)])
+        if not np.allclose(orientation_matrix, np.eye(3)):
+            return
+
+        image_file = _find_nii_gz(index)
         image = _load_nii_gz(image_file)
-        image = image * self._metadata_df.loc[volume_name, 'RescaleSlope']
-        image = image + self._metadata_df.loc[volume_name, 'RescaleIntercept']
+        image = image * self.metadata_df.loc[index, 'RescaleSlope']
+        image = image + self.metadata_df.loc[index, 'RescaleIntercept']
         image = np.swapaxes(image, 0, 1)[:, :, ::-1].copy()
-        save_numpy(image.astype('int16'), self.root_dir / f'{volume_name}.npy.gz', compression=1, timestamp=0)
+        save_numpy(image.astype('int16'), self.root_dir / f'{index}.npy.gz', compression=1, timestamp=0)
 
 
 class CTRATETrain(_CTRATE):

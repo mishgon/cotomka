@@ -31,7 +31,7 @@ Replace `/path/to/your/dataset/directory` with your desired location.
 
 ## Usage
 
-For a usage example, check out the [usage_example.ipynb](usage_example.ipynb) notebook.
+TODO: add usage example.
 
 
 ## License

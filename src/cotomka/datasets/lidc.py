@@ -169,11 +169,11 @@ class LIDC(Dataset):
             warnings.warn(f'Series {series_uid} fails with {e.__class__.__name__}: {str(e)}')
             return
 
-        save_dirpath = self.root_dir / series_uid
-        save_dirpath.mkdir()
-        save_numpy(image.astype('float16'), save_dirpath / 'image.npy.gz', compression=1, timestamp=0)
-        save_json(voxel_spacing, save_dirpath / 'voxel_spacing.json')
-        save_json([[n.to_json() for n in nodule] for nodule in nodules], save_dirpath / 'nodules.json')
+        data_dir = self.root_dir / series_uid
+        data_dir.mkdir()
+        save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
+        save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
+        save_json([[n.to_json() for n in nodule] for nodule in nodules], data_dir / 'nodules.json')
 
 
 def annotation_to_nodule(annotation: pl.Annotation, image_size: Tuple[int, int, int]) -> Nodule:
