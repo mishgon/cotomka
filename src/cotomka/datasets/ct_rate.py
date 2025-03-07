@@ -36,37 +36,37 @@ class _CTRATE(Dataset):
         return pd.read_csv(self.root_dir / 'reports.csv').set_index('VolumeName')
 
     @cached_property
-    def index(self) -> Tuple[str]:
+    def ids(self) -> Tuple[str]:
         return tuple(sorted(file.name[:-len('.npy.gz')] for file in self.root_dir.glob('*.npy.gz')))
 
-    def _load_image(self, index: str) -> np.ndarray:
+    def _get_image(self, index: str) -> np.ndarray:
         return load_numpy(self.root_dir / f'{index}.npy.gz', decompress=True).astype('float32')
 
-    def _load_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
+    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
         return (
             *map(float, self.metadata_df.loc[index, 'XYSpacing'][1:-1].split(', ')),
             float(self.metadata_df.loc[index, 'ZSpacing'])
         )
 
-    def _load_study_data(self, index: str) -> str:
+    def _get_study_data(self, index: str) -> str:
         return self.metadata_df.loc[index, 'StudyDate']
 
-    def _load_patient_sex(self, index: str) -> str:
+    def _get_patient_sex(self, index: str) -> str:
         return self.metadata_df.loc[index, 'PatientSex']
 
-    def _load_patient_age(self, index: str) -> str:
+    def _get_patient_age(self, index: str) -> str:
         return self.metadata_df.loc[index, 'PatientAge']
 
-    def _load_technique(self, index: str) -> str:
+    def _get_technique(self, index: str) -> str:
         return self.reports_df.loc[index, 'Technique_EN']
 
-    def _load_findings(self, index: str) -> str:
+    def _get_findings(self, index: str) -> str:
         return self.reports_df.loc[index, 'Findings_EN']
 
-    def _load_impression(self, index: str) -> str:
+    def _get_impression(self, index: str) -> str:
         return self.reports_df.loc[index, 'Impressions_EN']
 
-    def _load_labels(self, index: str) -> Dict[str, int]:
+    def _get_labels(self, index: str) -> Dict[str, int]:
         return self.labels_df.loc[index].to_dict()
 
     def prepare(self, num_workers: int = 1) -> None:

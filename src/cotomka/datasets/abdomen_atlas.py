@@ -8,14 +8,20 @@ import numpy as np
 
 from cotomka.datasets.base import Dataset
 from cotomka.preprocessing.nifty import affine_to_voxel_spacing, to_canonical_orientation, is_diagonal
-from cotomka.utils.io import save_numpy, save_json, load_numpy
+from cotomka.utils.io import save_numpy, save_json, load_numpy, load_json
 
 
 class AbdomenAtlas(Dataset):
     name = 'abdomen_atlas'
 
-    def _load_mask(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'mask.npy.gz', decompress=True)
+    def _get_image(self, index: str) -> np.ndarray:
+        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+
+    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+
+    def _get_mask(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / id / 'mask.npy.gz', decompress=True)
 
     def prepare(self, src_dir: str | Path, num_workers: int = 1) -> None:
         if self.root_dir.exists():
@@ -29,16 +35,16 @@ class AbdomenAtlas(Dataset):
         with Pool(num_workers) as p:
             _ = list(tqdm(p.imap(partial(self._prepare, src_dir=src_dir), ids), total=len(ids)))
 
-    def _prepare(self, id_: str, src_dir: Path) -> None:
-        image, affine = _load_nii(src_dir / 'uncompressed' / id_ / 'ct.nii.gz')
-        mask, mask_affine = _load_nii(src_dir / 'uncompressed' / id_ / 'combined_labels.nii.gz')
+    def _prepare(self, id: str, src_dir: Path) -> None:
+        image, affine = _load_nii(src_dir / 'uncompressed' / id / 'ct.nii.gz')
+        mask, mask_affine = _load_nii(src_dir / 'uncompressed' / id / 'combined_labels.nii.gz')
         if not is_diagonal(affine[:3, :3]) or not is_diagonal(mask_affine[:3, :3]):
             return
         voxel_spacing = affine_to_voxel_spacing(affine)
         image, voxel_spacing = to_canonical_orientation(image, voxel_spacing, affine)
         mask, _ = to_canonical_orientation(mask, None, mask_affine)
 
-        data_dir = self.root_dir / id_
+        data_dir = self.root_dir / id
         data_dir.mkdir()
         save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
         save_json(voxel_spacing, data_dir / 'voxel_spacing.json')

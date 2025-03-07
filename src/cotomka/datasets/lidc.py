@@ -14,7 +14,7 @@ from cotomka.preprocessing.dicom import (
     get_series_image, get_series_voxel_spacing, get_series_orientation_matrix,
     to_canonical_orientation
 )
-from cotomka.utils.io import save_numpy, save_json, load_json
+from cotomka.utils.io import save_numpy, save_json, load_numpy, load_json
 
 
 class Calcification(Enum):
@@ -123,8 +123,14 @@ class Nodule(NamedTuple):
 class LIDC(Dataset):
     name = 'lidc'
 
-    def _load_nodules(self, index: str) -> List[List[Nodule]]:
-        return [[Nodule.from_json(n) for n in nodule] for nodule in load_json(self.root_dir / index / 'nodules.json')]
+    def _get_image(self, index: str) -> np.ndarray:
+        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+
+    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+
+    def _get_nodules(self, id: str) -> List[List[Nodule]]:
+        return [[Nodule.from_json(n) for n in nodule] for nodule in load_json(self.root_dir / id / 'nodules.json')]
 
     def prepare(self, num_workers: int = 1):
         if self.root_dir.exists():

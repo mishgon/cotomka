@@ -14,7 +14,7 @@ class Dataset(ABC):
         self.root_dir = COTOMKA_ROOT_DIR / self.name
 
     @property
-    def index(self) -> Tuple[str]:
+    def ids(self) -> Tuple[str]:
         if not self.root_dir.exists():
             raise OSError('Dataset is not prepared on this OS')
 
@@ -22,9 +22,9 @@ class Dataset(ABC):
 
     @property
     def fields(self) -> Tuple[str]:
-        return tuple(sorted(name[len('_load_'):] for name in dir(self) if name.startswith('_load_')))
+        return tuple(sorted(name[len('_get_'):] for name in dir(self) if name.startswith('_get_')))
 
-    def load(self, index: str, fields: Optional[List[str]] = None) -> Dict[str, Any]:
+    def get(self, id: str, fields: Optional[List[str]] = None) -> Dict[str, Any]:
         if not self.root_dir.exists():
             raise OSError('Dataset is not prepared on this OS')
 
@@ -35,13 +35,7 @@ class Dataset(ABC):
         if missing_fields:
             raise ValueError(f'Dataset does not contain fields {missing_fields}')
 
-        return {f: getattr(self, f'_load_{f}')(index) for f in fields}
-
-    def _load_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
-
-    def _load_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
-        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+        return {f: getattr(self, f'_get_{f}')(id) for f in fields}
 
     @abstractmethod
     def prepare(self, *args, **kwargs) -> None:
