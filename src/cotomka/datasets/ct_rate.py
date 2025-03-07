@@ -1,6 +1,5 @@
 from typing import Tuple, Dict
 from pathlib import Path
-from functools import partial
 from multiprocessing import Pool
 from tqdm.auto import tqdm
 from functools import cached_property

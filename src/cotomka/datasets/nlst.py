@@ -1,4 +1,4 @@
-from typing import Iterable, List
+from typing import Iterable, List, Tuple
 from pathlib import Path
 import warnings
 from tqdm.auto import tqdm

@@ -1,3 +1,4 @@
+from typing import Tuple
 from pathlib import Path
 from tqdm.auto import tqdm
 import pydicom
