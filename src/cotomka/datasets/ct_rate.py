@@ -38,35 +38,35 @@ class _CTRATE(Dataset):
     def ids(self) -> Tuple[str]:
         return tuple(sorted(file.name[:-len('.npy.gz')] for file in self.root_dir.glob('*.npy.gz')))
 
-    def _get_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / f'{index}.npy.gz', decompress=True).astype('float32')
+    def _get_image(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / f'{id}.npy.gz', decompress=True).astype('float32')
 
-    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
+    def _get_voxel_spacing(self, id: str) -> Tuple[float, float, float]:
         return (
-            *map(float, self.metadata_df.loc[index, 'XYSpacing'][1:-1].split(', ')),
-            float(self.metadata_df.loc[index, 'ZSpacing'])
+            *map(float, self.metadata_df.loc[id, 'XYSpacing'][1:-1].split(', ')),
+            float(self.metadata_df.loc[id, 'ZSpacing'])
         )
 
-    def _get_study_data(self, index: str) -> str:
-        return self.metadata_df.loc[index, 'StudyDate']
+    def _get_study_data(self, id: str) -> str:
+        return self.metadata_df.loc[id, 'StudyDate']
 
-    def _get_patient_sex(self, index: str) -> str:
-        return self.metadata_df.loc[index, 'PatientSex']
+    def _get_patient_sex(self, id: str) -> str:
+        return self.metadata_df.loc[id, 'PatientSex']
 
-    def _get_patient_age(self, index: str) -> str:
-        return self.metadata_df.loc[index, 'PatientAge']
+    def _get_patient_age(self, id: str) -> str:
+        return self.metadata_df.loc[id, 'PatientAge']
 
-    def _get_technique(self, index: str) -> str:
-        return self.reports_df.loc[index, 'Technique_EN']
+    def _get_technique(self, id: str) -> str:
+        return self.reports_df.loc[id, 'Technique_EN']
 
-    def _get_findings(self, index: str) -> str:
-        return self.reports_df.loc[index, 'Findings_EN']
+    def _get_findings(self, id: str) -> str:
+        return self.reports_df.loc[id, 'Findings_EN']
 
-    def _get_impression(self, index: str) -> str:
-        return self.reports_df.loc[index, 'Impressions_EN']
+    def _get_impression(self, id: str) -> str:
+        return self.reports_df.loc[id, 'Impressions_EN']
 
-    def _get_labels(self, index: str) -> Dict[str, int]:
-        return self.labels_df.loc[index].to_dict()
+    def _get_labels(self, id: str) -> Dict[str, int]:
+        return self.labels_df.loc[id].to_dict()
 
     def prepare(self, num_workers: int = 1) -> None:
         if self.root_dir.exists():
@@ -77,29 +77,28 @@ class _CTRATE(Dataset):
         load_dataset(REPO_ID, 'metadata', split=self._split).to_pandas().to_csv(self.root_dir / 'metadata.csv', index=False)
         load_dataset(REPO_ID, 'reports', split=self._split).to_pandas().to_csv(self.root_dir / 'reports.csv', index=False)
 
-        index = self.labels_df.index
         with Pool(num_workers) as p:
-            _ = list(tqdm(p.imap(self._prepare_image, index), total=len(index)))
+            _ = list(tqdm(p.imap(self._prepare_image, self.labels_df.index), total=len(self.labels_df)))
 
-    def _prepare_image(self, index: str) -> None:
+    def _prepare_image(self, volume_name: str) -> None:
         # drop images with undefined slice spacing
-        if math.isnan(self.metadata_df.loc[index, 'ZSpacing']):
+        if math.isnan(self.metadata_df.loc[volume_name, 'ZSpacing']):
             return
 
         # drop series with non-canonical orientation
-        image_orientation_patient = self.metadata_df.loc[index, 'ImageOrientationPatient']
+        image_orientation_patient = self.metadata_df.loc[volume_name, 'ImageOrientationPatient']
         image_orientation_patient = np.array(list(map(float, image_orientation_patient[1:-1].split(', '))))
         row, col = image_orientation_patient.reshape(2, 3)
         orientation_matrix = np.stack([row, col, np.cross(row, col)])
         if not np.allclose(orientation_matrix, np.eye(3)):
             return
 
-        image_file = _find_nii_gz(index)
+        image_file = _find_nii_gz(volume_name)
         image = _load_nii_gz(image_file)
-        image = image * self.metadata_df.loc[index, 'RescaleSlope']
-        image = image + self.metadata_df.loc[index, 'RescaleIntercept']
+        image = image * self.metadata_df.loc[volume_name, 'RescaleSlope']
+        image = image + self.metadata_df.loc[volume_name, 'RescaleIntercept']
         image = np.swapaxes(image, 0, 1)[:, :, ::-1].copy()
-        save_numpy(image.astype('int16'), self.root_dir / f'{index}.npy.gz', compression=1, timestamp=0)
+        save_numpy(image.astype('int16'), self.root_dir / f'{volume_name}.npy.gz', compression=1, timestamp=0)
 
 
 class CTRATETrain(_CTRATE):

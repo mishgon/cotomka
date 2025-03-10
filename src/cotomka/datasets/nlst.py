@@ -18,11 +18,11 @@ from cotomka.utils.io import save_numpy, save_json, load_numpy, load_json
 class NLST(Dataset):
     name = 'nlst'
 
-    def _get_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+    def _get_image(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / id / 'image.npy.gz', decompress=True).astype('float32')
 
-    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
-        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+    def _get_voxel_spacing(self, id: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / id / 'voxel_spacing.json'))
 
     def prepare(self, src_dir: str | Path, num_workers: int = 1) -> None:
         if self.root_dir.exists():

@@ -23,11 +23,11 @@ DROP_IDS = (
 class AMOSCTLabeledTrain(Dataset):
     name = 'amos_ct_labeled_train'
 
-    def _get_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+    def _get_image(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / id / 'image.npy.gz', decompress=True).astype('float32')
 
-    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
-        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+    def _get_voxel_spacing(self, id: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / id / 'voxel_spacing.json'))
 
     def _get_mask(self, id: str) -> np.ndarray:
         return load_numpy(self.root_dir / id / 'mask.npy.gz', decompress=True)
@@ -66,11 +66,11 @@ class AMOSCTLabeledTrain(Dataset):
 class AMOSCTVal(Dataset):
     name = 'amos_ct_val'
 
-    def _get_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+    def _get_image(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / id / 'image.npy.gz', decompress=True).astype('float32')
 
-    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
-        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+    def _get_voxel_spacing(self, id: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / id / 'voxel_spacing.json'))
 
     def _get_mask(self, id: str) -> np.ndarray:
         return load_numpy(self.root_dir / id / 'mask.npy.gz', decompress=True)
@@ -110,11 +110,11 @@ class AMOSCTVal(Dataset):
 class AMOSCTUnlabeledTrain(Dataset):
     name = 'amos_ct_unlabeled_train'
 
-    def _get_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+    def _get_image(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / id / 'image.npy.gz', decompress=True).astype('float32')
 
-    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
-        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+    def _get_voxel_spacing(self, id: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / id / 'voxel_spacing.json'))
 
     def prepare(self, src_dir: str | Path, num_workers: int = 1) -> None:
         if self.root_dir.exists():

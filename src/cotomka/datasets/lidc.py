@@ -123,11 +123,11 @@ class Nodule(NamedTuple):
 class LIDC(Dataset):
     name = 'lidc'
 
-    def _get_image(self, index: str) -> np.ndarray:
-        return load_numpy(self.root_dir / index / 'image.npy.gz', decompress=True).astype('float32')
+    def _get_image(self, id: str) -> np.ndarray:
+        return load_numpy(self.root_dir / id / 'image.npy.gz', decompress=True).astype('float32')
 
-    def _get_voxel_spacing(self, index: str) -> Tuple[float, float, float]:
-        return tuple(load_json(self.root_dir / index / 'voxel_spacing.json'))
+    def _get_voxel_spacing(self, id: str) -> Tuple[float, float, float]:
+        return tuple(load_json(self.root_dir / id / 'voxel_spacing.json'))
 
     def _get_nodules(self, id: str) -> List[List[Nodule]]:
         return [[Nodule.from_json(n) for n in nodule] for nodule in load_json(self.root_dir / id / 'nodules.json')]
