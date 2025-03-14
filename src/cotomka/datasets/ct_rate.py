@@ -68,6 +68,9 @@ class _CTRATE(Dataset):
     def _get_labels(self, id: str) -> Dict[str, int]:
         return self.labels_df.loc[id].to_dict()
 
+    def _get_patient_id(self, id: str) -> str:
+        return '_'.join(id.split('_')[:2])
+
     def prepare(self, num_workers: int = 1) -> None:
         if self.root_dir.exists():
             raise OSError(f'Directory {self.root_dir} already exists')

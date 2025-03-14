@@ -35,7 +35,9 @@ class Dataset(ABC):
         if missing_fields:
             raise ValueError(f'Dataset does not contain fields {missing_fields}')
 
-        return {f: getattr(self, f'_get_{f}')(id) for f in fields}
+        data = {f: getattr(self, f'_get_{f}')(id) for f in fields}
+        data['id'] = id
+        return data
 
     @abstractmethod
     def prepare(self, *args, **kwargs) -> None:
