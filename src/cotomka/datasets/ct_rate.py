@@ -12,8 +12,7 @@ from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 
 from cotomka.datasets.base import Dataset
-from cotomka.preprocessing.dicom import orientation_matrix_to_slice_plane, Plane
-from cotomka.utils.io import save_numpy, save_json, load_numpy
+from cotomka.utils.io import save_numpy, load_numpy
 
 
 REPO_ID = 'ibrahimhamamci/CT-RATE'
