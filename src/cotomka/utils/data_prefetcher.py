@@ -66,15 +66,18 @@ class DataPrefetcher:
         indices = sorted(indices, key=lambda ij: ij[0])
         for i, g in itertools.groupby(indices, key=lambda ij: ij[0]):
             with self.locks[i]:
+                del_indices = []
                 for _, j in g:
                     clone, clones_count = self.buffers[i][j]
+                    samples.append(clone)
                     clones_count += 1
                     if clones_count >= self.clone_factor:
-                        del self.buffers[i][j]
+                        del_indices.append(j)
                     else:
                         self.buffers[i][j] = (clone, clones_count)
-                    
-                    samples.append(clone)
+
+                for j in sorted(del_indices, reverse=True):
+                    del self.buffers[i][j]
 
         if len(samples) < k:
             samples.extend([
