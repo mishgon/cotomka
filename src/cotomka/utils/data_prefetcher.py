@@ -45,7 +45,7 @@ class DataPrefetcher:
 
     def _worker(self, i: int) -> None:
         while not self.stop_event.is_set():
-            data = self.dataset.get(random.choice(self.dataset.ids), fields=self.fields)
+            data = self.dataset.get(random.choice(self.dataset.ids[:-1]), fields=self.fields)
 
             with self.locks[i]:
                 if len(self.buffers[i]) < self.buffer_size:
@@ -78,7 +78,7 @@ class DataPrefetcher:
 
         if len(samples) < k:
             samples.extend([
-                self.dataset.get(random.choice(self.dataset.ids), fields=self.fields)
+                self.dataset.get(random.choice(self.dataset.ids[:-1]), fields=self.fields)
                 for _ in range(k - len(samples))
             ])
 
@@ -87,8 +87,10 @@ class DataPrefetcher:
     def __iter__(self):
         return self
 
-    def __next__(self) -> Any:
-        for i in random.sample(range(len(self.workers)), k=len(self.workers)):
+    def __next__(self, schedule=None) -> Any:
+        if schedule is None:
+            schedule = random.sample(range(len(self.workers)), k=len(self.workers))
+        for i in schedule:
             with self.locks[i]:
                 if not self.buffers[i]:
                     continue
@@ -102,9 +104,13 @@ class DataPrefetcher:
                     self.buffers[i][j] = (clone, clones_count)
                 return clone
 
-        return self.dataset.get(random.choice(self.dataset.ids), fields=self.fields)
+        return self.dataset.get(random.choice(self.dataset.ids[:-1]), fields=self.fields)
 
-    def __del__(self) -> None:
+    def destroy(self) -> None:
         self.stop_event.set()
         for worker in self.workers:
             worker.join()
+        self.buffers.clear()
+
+    def __del__(self) -> None:
+        self.destroy()
