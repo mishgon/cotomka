@@ -13,6 +13,7 @@ def main(args):
     snapshot_download(
         repo_id='ibrahimhamamci/CT-RATE',
         repo_type='dataset',
+        revision='d8fe2952748813799042cec9459ba12a99caab77',
         etag_timeout=60,
         token=args.token,
         max_workers=32

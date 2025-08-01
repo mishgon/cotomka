@@ -2,9 +2,6 @@ import yaml
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Dict, Tuple
 from pathlib import Path
-import numpy as np
-
-from cotomka.utils.io import load_numpy, load_json
 
 
 class Dataset(ABC):

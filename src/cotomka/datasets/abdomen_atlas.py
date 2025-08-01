@@ -49,7 +49,7 @@ class AbdomenAtlas(Dataset):
         save_numpy(image.astype('int16'), data_dir / 'image.npy.gz', compression=1, timestamp=0)
         save_json(voxel_spacing, data_dir / 'voxel_spacing.json')
         save_numpy(mask.astype('uint8'), data_dir / 'mask.npy.gz', compression=1, timestamp=0)
-    
+
 
 def _load_nii(nii_file: Path) -> Tuple[np.ndarray, np.ndarray]:
     nii = nibabel.load(nii_file)

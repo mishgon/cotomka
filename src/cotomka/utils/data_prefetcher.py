@@ -4,6 +4,7 @@ import multiprocessing
 import random
 import time
 import itertools
+import warnings
 
 from cotomka.datasets.base import Dataset
 
@@ -11,14 +12,14 @@ from cotomka.datasets.base import Dataset
 class DataPrefetcher:
     def __init__(
             self,
-            dataset: Dataset,
+            *datasets: Dataset,
             num_workers: int,
             buffer_size: int = 2,
             clone_factor: int = 1,
             backend: Literal['threading', 'multiprocessing'] = 'threading',
             fields: Optional[List[str]] = None,
     ) -> None:
-        self.dataset = dataset
+        self.datasets = datasets
         self.fields = fields
         self.buffer_size = buffer_size
         self.clone_factor = clone_factor
@@ -45,7 +46,8 @@ class DataPrefetcher:
 
     def _worker(self, i: int) -> None:
         while not self.stop_event.is_set():
-            data = self.dataset.get(random.choice(self.dataset.ids), fields=self.fields)
+            dataset = random.choice(self.datasets)
+            data = dataset.get(random.choice(dataset.ids), fields=self.fields)
 
             with self.locks[i]:
                 if len(self.buffers[i]) < self.buffer_size:
@@ -80,10 +82,9 @@ class DataPrefetcher:
                     del self.buffers[i][j]
 
         if len(samples) < k:
-            samples.extend([
-                self.dataset.get(random.choice(self.dataset.ids), fields=self.fields)
-                for _ in range(k - len(samples))
-            ])
+            for _ in range(k - len(samples)):
+                dataset = random.choice(self.datasets)
+                samples.append(dataset.get(random.choice(dataset.ids), fields=self.fields))
 
         return samples
 
@@ -105,7 +106,9 @@ class DataPrefetcher:
                     self.buffers[i][j] = (clone, clones_count)
                 return clone
 
-        return self.dataset.get(random.choice(self.dataset.ids), fields=self.fields)
+        warnings.warn('Buffers are empty, sampling from the dataset directly...')
+        dataset = random.choice(self.datasets)
+        return dataset.get(random.choice(dataset.ids), fields=self.fields)
 
     def __del__(self) -> None:
         self.stop_event.set()
