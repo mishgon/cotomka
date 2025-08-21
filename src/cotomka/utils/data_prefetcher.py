@@ -45,8 +45,14 @@ class DataPrefetcher:
 
     def _worker(self, i: int) -> None:
         while not self.stop_event.is_set():
-            data = self.dataset.get(random.choice(self.dataset.ids[:-1]), fields=self.fields)
-
+            try:
+                id_ = random.choice(self.dataset.ids[:-1])
+                data = self.dataset.get(id_, fields=self.fields)
+            except Exception as e:
+                # print(e)
+                # print(f"failed id: {id_}")
+                # continue
+                raise e
             with self.locks[i]:
                 if len(self.buffers[i]) < self.buffer_size:
                     self.buffers[i].append((data, 0))

@@ -2,7 +2,7 @@ from typing import Tuple
 from pathlib import Path
 from tqdm.auto import tqdm
 import pydicom
-import mdai
+# import mdai
 import numpy as np
 import pandas as pd
 from skimage.draw import polygon
